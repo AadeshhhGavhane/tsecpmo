@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aether - Report Analysis</title>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: #f5f5f5;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .header {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+
+    .upload-section {
+      display: flex;
+      gap: 15px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .form-group {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      color: #555;
+      font-weight: 500;
+    }
+
+    input[type="file"],
+    input[type="number"] {
+      width: 100%;
+      padding: 10px;
+      border: 2px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    input[type="number"] {
+      max-width: 150px;
+    }
+
+    button {
+      padding: 10px 30px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button:hover:not(:disabled) {
+      background: #0056b3;
+    }
+
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    .status {
+      margin-top: 15px;
+      padding: 10px;
+      background: #e7f3ff;
+      border-left: 4px solid #007bff;
+      border-radius: 4px;
+      display: none;
+    }
+
+    .status.active {
+      display: block;
+    }
+
+    .debate-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .column {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      padding: 20px;
+      min-height: 400px;
+    }
+
+    .column-header {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #eee;
+    }
+
+    .support-column .column-header {
+      color: #28a745;
+      border-bottom-color: #28a745;
+    }
+
+    .oppose-column .column-header {
+      color: #dc3545;
+      border-bottom-color: #dc3545;
+    }
+
+    .factor-section {
+      margin-bottom: 30px;
+    }
+
+    .factor-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 15px;
+      padding: 10px;
+      background: #f8f9fa;
+      border-radius: 4px;
+    }
+
+    .turn {
+      margin-bottom: 20px;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 4px;
+      border-left: 4px solid #ddd;
+    }
+
+    .support-column .turn {
+      border-left-color: #28a745;
+    }
+
+    .oppose-column .turn {
+      border-left-color: #dc3545;
+    }
+
+    .turn-header {
+      font-weight: 600;
+      color: #555;
+      margin-bottom: 10px;
+    }
+
+    .thesis {
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 10px;
+      font-size: 15px;
+    }
+
+    .reasoning {
+      color: #666;
+      line-height: 1.6;
+      margin-bottom: 10px;
+    }
+
+    .evidence,
+    .concessions {
+      margin-top: 10px;
+      font-size: 13px;
+    }
+
+    .evidence-title,
+    .concessions-title {
+      font-weight: 600;
+      color: #555;
+      margin-bottom: 5px;
+    }
+
+    .evidence ul,
+    .concessions ul {
+      margin-left: 20px;
+      color: #777;
+    }
+
+    .synthesis-section {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      padding: 20px;
+      display: none;
+    }
+
+    .synthesis-section.active {
+      display: block;
+    }
+
+    .synthesis-header {
+      font-size: 20px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #007bff;
+    }
+
+    .synthesis-content {
+      line-height: 1.8;
+    }
+
+    .synthesis-section h3 {
+      margin-top: 20px;
+      margin-bottom: 10px;
+      color: #333;
+    }
+
+    .synthesis-section ul {
+      margin-left: 20px;
+      margin-bottom: 15px;
+    }
+
+    .synthesis-section li {
+      margin-bottom: 8px;
+      color: #555;
+    }
+
+    .per-factor {
+      margin-top: 20px;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 4px;
+      margin-bottom: 15px;
+    }
+
+    .per-factor h4 {
+      color: #333;
+      margin-bottom: 10px;
+    }
+
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+      padding: 15px;
+      border-radius: 4px;
+      margin-top: 20px;
+      border-left: 4px solid #dc3545;
+    }
+
+    .factor-selector {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 2px solid #eee;
+      display: none;
+    }
+
+    .factor-selector.active {
+      display: flex;
+    }
+
+    .factor-button {
+      padding: 8px 16px;
+      background: #f8f9fa;
+      border: 2px solid #ddd;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+      color: black;
+    }
+
+    .factor-button:hover {
+      background: #e9ecef;
+      border-color: #007bff;
+    }
+
+    .factor-button.active {
+      background: #007bff;
+      color: black;
+      border-color: #007bff;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Aether - Report Analysis</h1>
+      <div class="upload-section">
+        <div class="form-group">
+          <label for="fileInput">Upload Report (Markdown)</label>
+          <input type="file" id="fileInput" accept=".md,.txt" />
+        </div>
+        <div class="form-group">
+          <label for="turnsInput">Number of Turns</label>
+          <input type="number" id="turnsInput" value="2" min="1" max="10" />
+        </div>
+        <button id="analyzeBtn" onclick="startAnalysis()">Analyze</button>
+      </div>
+      <div class="status" id="status"></div>
+      <div class="factor-selector" id="factorSelector"></div>
+    </div>
+
+    <div class="debate-container">
+      <div class="column support-column">
+        <div class="column-header">Support Arguments</div>
+        <div id="supportContent"></div>
+      </div>
+      <div class="column oppose-column">
+        <div class="column-header">Oppose Arguments</div>
+        <div id="opposeContent"></div>
+      </div>
+    </div>
+
+    <div class="synthesis-section" id="synthesisSection">
+      <div class="synthesis-header">Synthesis</div>
+      <div class="synthesis-content" id="synthesisContent"></div>
+    </div>
+  </div>
+
+  <script>
+    let socket = null;
+    let currentJobId = null;
+    let debateData = {}; // Store all debate data: { factorId: { factorName, supportTurns: [], opposeTurns: [] } }
+    let factors = []; // Store all factors
+    let selectedFactorId = null;
+    const supportContent = document.getElementById('supportContent');
+    const opposeContent = document.getElementById('opposeContent');
+    const synthesisSection = document.getElementById('synthesisSection');
+    const synthesisContent = document.getElementById('synthesisContent');
+    const statusDiv = document.getElementById('status');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const factorSelector = document.getElementById('factorSelector');
+
+    function updateStatus(message) {
+      statusDiv.textContent = message;
+      statusDiv.classList.add('active');
+    }
+
+    function clearContent() {
+      supportContent.innerHTML = '';
+      opposeContent.innerHTML = '';
+      synthesisContent.innerHTML = '';
+      synthesisSection.classList.remove('active');
+      debateData = {};
+      factors = [];
+      selectedFactorId = null;
+      factorSelector.innerHTML = '';
+      factorSelector.classList.remove('active');
+    }
+
+    function displayFactor(factorId) {
+      selectedFactorId = factorId;
+      
+      // Update button states
+      document.querySelectorAll('.factor-button').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.factorId === factorId);
+      });
+
+      // Clear current display
+      supportContent.innerHTML = '';
+      opposeContent.innerHTML = '';
+
+      if (!debateData[factorId]) {
+        return;
+      }
+
+      const factor = debateData[factorId];
+      
+      // Create factor title for support
+      const supportTitle = document.createElement('div');
+      supportTitle.className = 'factor-title';
+      supportTitle.textContent = factor.factorName;
+      supportContent.appendChild(supportTitle);
+
+      // Create factor title for oppose
+      const opposeTitle = document.createElement('div');
+      opposeTitle.className = 'factor-title';
+      opposeTitle.textContent = factor.factorName;
+      opposeContent.appendChild(opposeTitle);
+
+      // Display only the latest turn pair
+      // Show support turn (should only be one)
+      if (factor.supportTurns.length > 0) {
+        const supportTurn = factor.supportTurns[factor.supportTurns.length - 1];
+        const turnElement = createTurnElement(supportTurn, 'support');
+        supportContent.appendChild(turnElement);
+      }
+
+      // Show oppose turn for the same turn number as the support turn
+      if (factor.supportTurns.length > 0) {
+        const currentTurnNumber = factor.supportTurns[factor.supportTurns.length - 1].turn;
+        const opposeTurn = factor.opposeTurns.find(t => t.turn === currentTurnNumber);
+        if (opposeTurn) {
+          const turnElement = createTurnElement(opposeTurn, 'oppose');
+          opposeContent.appendChild(turnElement);
+        }
+      }
+    }
+
+    function createFactorSelector() {
+      factorSelector.innerHTML = '';
+      factors.forEach(factor => {
+        const button = document.createElement('button');
+        button.className = 'factor-button';
+        button.textContent = factor.name;
+        button.dataset.factorId = factor.id;
+        button.onclick = () => displayFactor(factor.id);
+        if (factor.id === selectedFactorId || (!selectedFactorId && factors[0] && factor.id === factors[0].id)) {
+          button.classList.add('active');
+          if (!selectedFactorId) {
+            selectedFactorId = factor.id;
+            displayFactor(factor.id);
+          }
+        }
+        factorSelector.appendChild(button);
+      });
+      factorSelector.classList.add('active');
+    }
+
+    function storeTurnData(factorId, factorName, turnData, type) {
+      if (!debateData[factorId]) {
+        debateData[factorId] = {
+          factorName,
+          supportTurns: [],
+          opposeTurns: [],
+        };
+      }
+
+      if (type === 'support') {
+        // When a new support turn comes in, remove all previous turns (both support and oppose)
+        // This ensures we only show the latest turn pair
+        debateData[factorId].supportTurns = [turnData];
+        debateData[factorId].opposeTurns = debateData[factorId].opposeTurns.filter(t => t.turn === turnData.turn);
+      } else if (type === 'oppose') {
+        // Add the oppose turn, but only keep it if it matches the current support turn
+        const currentSupportTurn = debateData[factorId].supportTurns.find(t => t.turn === turnData.turn);
+        if (currentSupportTurn) {
+          // Remove any existing oppose turn with the same turn number
+          debateData[factorId].opposeTurns = debateData[factorId].opposeTurns.filter(t => t.turn !== turnData.turn);
+          debateData[factorId].opposeTurns.push(turnData);
+        }
+      }
+
+      // If this is the selected factor, update the display
+      if (selectedFactorId === factorId) {
+        displayFactor(factorId);
+      }
+    }
+
+    function createTurnElement(turnData, type) {
+      const turn = document.createElement('div');
+      turn.className = 'turn';
+      
+      const header = document.createElement('div');
+      header.className = 'turn-header';
+      header.textContent = `Turn ${turnData.turn}`;
+      turn.appendChild(header);
+
+      const thesis = document.createElement('div');
+      thesis.className = 'thesis';
+      thesis.textContent = turnData.thesis;
+      turn.appendChild(thesis);
+
+      const reasoning = document.createElement('div');
+      reasoning.className = 'reasoning';
+      reasoning.textContent = turnData.reasoning;
+      turn.appendChild(reasoning);
+
+      if (turnData.evidence && turnData.evidence.length > 0) {
+        const evidence = document.createElement('div');
+        evidence.className = 'evidence';
+        const evidenceTitle = document.createElement('div');
+        evidenceTitle.className = 'evidence-title';
+        evidenceTitle.textContent = 'Evidence:';
+        evidence.appendChild(evidenceTitle);
+        const evidenceList = document.createElement('ul');
+        turnData.evidence.forEach(item => {
+          const li = document.createElement('li');
+          li.textContent = item;
+          evidenceList.appendChild(li);
+        });
+        evidence.appendChild(evidenceList);
+        turn.appendChild(evidence);
+      }
+
+      if (turnData.concessions && turnData.concessions.length > 0) {
+        const concessions = document.createElement('div');
+        concessions.className = 'concessions';
+        const concessionsTitle = document.createElement('div');
+        concessionsTitle.className = 'concessions-title';
+        concessionsTitle.textContent = 'Concessions:';
+        concessions.appendChild(concessionsTitle);
+        const concessionsList = document.createElement('ul');
+        turnData.concessions.forEach(item => {
+          const li = document.createElement('li');
+          li.textContent = item;
+          concessionsList.appendChild(li);
+        });
+        concessions.appendChild(concessionsList);
+        turn.appendChild(concessions);
+      }
+
+      return turn;
+    }
+
+    function displaySynthesis(synthesis) {
+      let html = '';
+
+      if (synthesis.overallSummary) {
+        html += `<p><strong>Overall Summary:</strong> ${synthesis.overallSummary}</p>`;
+      }
+
+      if (synthesis.whatWorked && synthesis.whatWorked.length > 0) {
+        html += '<h3>What Worked</h3><ul>';
+        synthesis.whatWorked.forEach(item => {
+          html += `<li>${item}</li>`;
+        });
+        html += '</ul>';
+      }
+
+      if (synthesis.whatFailed && synthesis.whatFailed.length > 0) {
+        html += '<h3>What Failed</h3><ul>';
+        synthesis.whatFailed.forEach(item => {
+          html += `<li>${item}</li>`;
+        });
+        html += '</ul>';
+      }
+
+      if (synthesis.rootCauses && synthesis.rootCauses.length > 0) {
+        html += '<h3>Root Causes</h3><ul>';
+        synthesis.rootCauses.forEach(item => {
+          html += `<li>${item}</li>`;
+        });
+        html += '</ul>';
+      }
+
+      if (synthesis.recommendations && synthesis.recommendations.length > 0) {
+        html += '<h3>Recommendations</h3><ul>';
+        synthesis.recommendations.forEach(item => {
+          html += `<li>${item}</li>`;
+        });
+        html += '</ul>';
+      }
+
+      if (synthesis.perFactor && synthesis.perFactor.length > 0) {
+        html += '<h3>Per Factor Analysis</h3>';
+        synthesis.perFactor.forEach(factor => {
+          html += `
+            <div class="per-factor">
+              <h4>${factor.factorName}</h4>
+              <p><strong>Support Summary:</strong> ${factor.summarySupport}</p>
+              <p><strong>Oppose Summary:</strong> ${factor.summaryOppose}</p>
+              <p><strong>Verdict:</strong> ${factor.verdict}</p>
+              ${factor.recommendations && factor.recommendations.length > 0 ? 
+                `<p><strong>Recommendations:</strong></p><ul>${factor.recommendations.map(r => `<li>${r}</li>`).join('')}</ul>` : ''}
+            </div>
+          `;
+        });
+      }
+
+      synthesisContent.innerHTML = html;
+      synthesisSection.classList.add('active');
+    }
+
+    async function startAnalysis() {
+      const fileInput = document.getElementById('fileInput');
+      const turnsInput = document.getElementById('turnsInput');
+      const file = fileInput.files[0];
+
+      if (!file) {
+        alert('Please select a file');
+        return;
+      }
+
+      const turns = parseInt(turnsInput.value, 10);
+      if (isNaN(turns) || turns < 1) {
+        alert('Please enter a valid number of turns');
+        return;
+      }
+
+      // Disable button
+      analyzeBtn.disabled = true;
+      clearContent();
+      updateStatus('Uploading file...');
+
+      // Create form data
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('turns', turns);
+
+      try {
+        // Upload file and start analysis
+        const response = await fetch('/api/analyze', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Failed to start analysis');
+        }
+
+        const { jobId } = await response.json();
+        currentJobId = jobId;
+
+        // Connect to WebSocket
+        if (socket) {
+          socket.disconnect();
+        }
+
+        socket = io();
+        socket.emit('join-job', jobId);
+
+        updateStatus('Connected. Starting analysis...');
+
+        // Handle WebSocket events
+        socket.on('factors-extracted', (data) => {
+          factors = data.factors;
+          updateStatus(`Extracted ${data.factors.length} factors. Starting debates...`);
+          createFactorSelector();
+        });
+
+        socket.on('factor-started', (data) => {
+          updateStatus(`Analyzing factor: ${data.factorName}`);
+        });
+
+        socket.on('support-turn', (data) => {
+          storeTurnData(data.factorId, data.factorName, data.data, 'support');
+          updateStatus(`Support turn ${data.turn} completed for ${data.factorName}`);
+        });
+
+        socket.on('oppose-turn', (data) => {
+          storeTurnData(data.factorId, data.factorName, data.data, 'oppose');
+          updateStatus(`Oppose turn ${data.turn} completed for ${data.factorName}`);
+        });
+
+        socket.on('factor-complete', (data) => {
+          updateStatus(`Factor analysis complete. Continuing...`);
+          
+          // Auto-switch to next factor
+          const currentIndex = factors.findIndex(f => f.id === data.factorId);
+          if (currentIndex !== -1 && currentIndex < factors.length - 1) {
+            // Switch to next factor
+            const nextFactor = factors[currentIndex + 1];
+            setTimeout(() => {
+              displayFactor(nextFactor.id);
+            }, 500); // Small delay for better UX
+          }
+        });
+
+        socket.on('synthesis-complete', (data) => {
+          displaySynthesis(data.synthesis);
+          updateStatus('Analysis complete!');
+          analyzeBtn.disabled = false;
+        });
+
+        socket.on('status', (data) => {
+          const statusMessages = {
+            'extracting-factors': 'Extracting factors from report...',
+            'debating': 'Starting debates...',
+            'generating-support': 'Generating support argument...',
+            'generating-oppose': 'Generating oppose argument...',
+            'synthesizing': 'Synthesizing final report...',
+            'complete': 'Analysis complete!',
+          };
+          if (statusMessages[data.status]) {
+            updateStatus(statusMessages[data.status]);
+          }
+        });
+
+        socket.on('error', (data) => {
+          const errorDiv = document.createElement('div');
+          errorDiv.className = 'error';
+          errorDiv.textContent = `Error: ${data.message}`;
+          document.querySelector('.container').appendChild(errorDiv);
+          updateStatus('Error occurred');
+          analyzeBtn.disabled = false;
+        });
+
+      } catch (error) {
+        alert(`Error: ${error.message}`);
+        updateStatus('Error occurred');
+        analyzeBtn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>
+
