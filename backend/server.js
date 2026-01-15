@@ -21,6 +21,8 @@ const app = express();
 
 // Enable CORS for all origins
 app.use(cors());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
@@ -51,6 +53,49 @@ if (!fs.existsSync(tmpDir)) {
 app.use(express.static(path.join(__dirname, 'public')));
 
 
+
+// API endpoint to convert markdown to PDF
+app.post('/api/convert-to-pdf', async (req, res) => {
+  try {
+    const { markdown } = req.body;
+    if (!markdown) {
+      return res.status(400).json({ error: 'Markdown content is required' });
+    }
+
+    console.log('Converting markdown to PDF via external API, length:', markdown.length);
+
+    // Send raw markdown content as Buffer with explicit length
+    const pdfApiUrl = process.env.PDF_API_URL ;
+    const bodyBuffer = Buffer.from(markdown, 'utf-8');
+    
+    // Log first few chars to debug
+    console.log('Sending markdown start:', markdown.substring(0, 50));
+
+    const response = await fetch(pdfApiUrl, {
+      method: 'POST',
+      body: bodyBuffer,
+      headers: {
+        'Content-Type': 'text/plain',
+        'Content-Length': bodyBuffer.length.toString(),
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`PDF API Error (${response.status}):`, errorText);
+      throw new Error(`PDF API error: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+
+    const pdfBuffer = await response.arrayBuffer();
+    
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename="debate-transcript.pdf"');
+    res.send(Buffer.from(pdfBuffer));
+  } catch (error) {
+    console.error('PDF Conversion Error:', error);
+    res.status(500).json({ error: 'Failed to generate PDF', details: error.message });
+  }
+});
 
 // API endpoint to start analysis
 app.post('/api/analyze', upload.single('file'), async (req, res) => {

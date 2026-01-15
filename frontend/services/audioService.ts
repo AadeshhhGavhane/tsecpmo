@@ -20,7 +20,7 @@ const VOICE_MAP: Record<Speaker, string> = {
     [Speaker.SYSTEM]: 'am_santa',
 };
 
-const KOKORO_API_URL = process.env.TTS_API_URL || 'http://localhost:8880/dev/captioned_speech';
+const KOKORO_API_URL = import.meta.env.VITE_TTS_API_URL || 'http://localhost:8880/dev/captioned_speech';
 
 /**
  * Generate speech audio for a given text and speaker.
@@ -31,43 +31,52 @@ export async function generateSpeechForTurn(
     speaker: Speaker
 ): Promise<AudioGenerationResult> {
     const voice = VOICE_MAP[speaker] || 'am_santa';
+    console.log('[AudioService] Using API URL:', KOKORO_API_URL);
+    console.log('[AudioService] Generating speech for:', text.substring(0, 50) + '...');
 
-    const response = await fetch(KOKORO_API_URL, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            model: 'kokoro',
-            input: text,
-            voice: voice,
-            speed: 1.0,
-            response_format: 'mp3',
-            stream: false,
-        }),
-    });
+    try {
+        const response = await fetch(KOKORO_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                model: 'kokoro',
+                input: text,
+                voice: voice,
+                speed: 1.0,
+                response_format: 'mp3',
+                stream: false,
+            }),
+        });
 
-    if (!response.ok) {
-        throw new Error(`Kokoro API error: ${response.status} ${response.statusText}`);
+        if (!response.ok) {
+            const errText = await response.text();
+            console.error(`[AudioService] API Error: ${response.status}`, errText);
+            throw new Error(`Kokoro API error: ${response.status} ${response.statusText}`);
+        }
+
+        const audioJson = await response.json();
+        console.log('[AudioService] Success!');
+
+        // Decode base64 audio to blob
+        const audioBytes = atob(audioJson.audio);
+        const audioArray = new Uint8Array(audioBytes.length);
+        for (let i = 0; i < audioBytes.length; i++) {
+            audioArray[i] = audioBytes.charCodeAt(i);
+        }
+        const audioBlob = new Blob([audioArray], { type: 'audio/mpeg' });
+        const audioUrl = URL.createObjectURL(audioBlob);
+
+        return {
+            audioUrl,
+            timestamps: audioJson.timestamps as WordTimestamp[],
+        };
+    } catch (error) {
+        console.error('[AudioService] Error generating speech:', error);
+        throw error;
     }
-
-    const audioJson = await response.json();
-
-    // Decode base64 audio to blob
-    const audioBytes = atob(audioJson.audio);
-    const audioArray = new Uint8Array(audioBytes.length);
-    for (let i = 0; i < audioBytes.length; i++) {
-        audioArray[i] = audioBytes.charCodeAt(i);
-    }
-    const audioBlob = new Blob([audioArray], { type: 'audio/mpeg' });
-    const audioUrl = URL.createObjectURL(audioBlob);
-
-    return {
-        audioUrl,
-        timestamps: audioJson.timestamps as WordTimestamp[],
-    };
 }
-
 /**
  * Pre-process audio for multiple turns in the background.
  * Returns a Map of turn index to audio data.

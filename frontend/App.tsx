@@ -8,7 +8,7 @@ import {
   createOpposeStep,
   createVerdictStep,
   generateDebateMarkdown,
-  downloadMarkdown,
+  downloadPdf,
   AnalysisSession,
 } from './services/backendService';
 import { generateSpeechForTurn, AudioGenerationResult, revokeAudioUrl } from './services/audioService';
@@ -49,6 +49,7 @@ const App: React.FC = () => {
   const sessionRef = useRef<AnalysisSession | null>(null);
   const factorIndexRef = useRef<number>(0);
   const allFactorsRef = useRef<Factor[]>([]);
+  const finishCurrentStepRef = useRef<() => void>(() => { });
 
   // Keep refs in sync
   useEffect(() => {
@@ -116,11 +117,16 @@ const App: React.FC = () => {
 
   // Play audio for current step with text sync
   const playStepAudio = useCallback(async (stepIndex: number, step: DialogueStep) => {
+    console.log(`[App] playStepAudio called for step ${stepIndex}`);
     cleanupAudio();
 
     setCurrentSpeaker(step.speaker);
     setDisplayedText('');
     setIsAudioPlaying(true);
+
+    // Update factor info... (omitted for brevity in replacement if unchanged, but I must replace the whole block if I want to be safe)
+    // Actually, I can just replace the start of the function and the fallback part.
+    // Let's replace the top part until the fallback.
 
     // Update factor info
     if (step.factorInfo) {
@@ -140,17 +146,21 @@ const App: React.FC = () => {
     // Get or generate TTS
     let audioData = audioDataRef.current.get(stepIndex);
     if (!audioData) {
+      console.log(`[App] No cached audio for step ${stepIndex}, generating...`);
       audioData = await generateTTS(step, stepIndex);
     }
 
     if (!audioData || !audioData.timestamps || audioData.timestamps.length === 0) {
+      console.warn(`[App] TTS failed or no timestamps for step ${stepIndex}. Using fallback.`);
       // Fallback: show all text without audio
       setDisplayedText(step.text);
       setTimeout(() => {
-        finishCurrentStep();
+        finishCurrentStepRef.current();
       }, 3000);
       return;
     }
+
+    console.log(`[App] Audio ready for step ${stepIndex}, playing...`);
 
     // Start prefetching next turns
     prefetchTTS(stepIndex + 1);
@@ -212,7 +222,7 @@ const App: React.FC = () => {
 
       // Wait briefly then move to next
       setTimeout(() => {
-        finishCurrentStep();
+        finishCurrentStepRef.current();
       }, 600);
     };
 
@@ -221,7 +231,7 @@ const App: React.FC = () => {
       setDisplayedText(step.text);
       cleanupAudio();
       setTimeout(() => {
-        finishCurrentStep();
+        finishCurrentStepRef.current();
       }, 2000);
     };
 
@@ -233,7 +243,7 @@ const App: React.FC = () => {
       setDisplayedText(step.text);
       cleanupAudio();
       setTimeout(() => {
-        finishCurrentStep();
+        finishCurrentStepRef.current();
       }, 2000);
     }
   }, [cleanupAudio, prefetchTTS]);
@@ -253,12 +263,37 @@ const App: React.FC = () => {
         if (turnQueueRef.current.length > 0) {
           processNextTurn();
         } else if (finalSynthesis) {
+          console.log('[App] Finished! Showing synthesis.');
           setAppState(AppState.FINISHED);
           setCurrentFactorIndex(-1);
         }
       }, 1000);
     }
-  }, [finalSynthesis]);
+  }, [finalSynthesis]); // Keep explicit dependency here
+
+  // Keep ref in sync
+  useEffect(() => {
+    finishCurrentStepRef.current = finishCurrentStep;
+  }, [finishCurrentStep]);
+
+  // Handle skip button - show full text, stop audio, advance after 2 seconds
+  const handleSkip = useCallback(() => {
+    console.log('Skip clicked - showing full text and advancing after 2s');
+
+    // Get current step and show full text
+    const currentStep = transcriptRef.current[currentStepIndex];
+    if (currentStep) {
+      setDisplayedText(currentStep.text);
+    }
+
+    // Stop audio but keep speaker visible
+    cleanupAudio();
+
+    // Wait 2 seconds then advance to next turn
+    setTimeout(() => {
+      finishCurrentStepRef.current();
+    }, 2000);
+  }, [currentStepIndex, cleanupAudio]);
 
   // Process the next turn in the queue
   const processNextTurn = useCallback(() => {
@@ -408,7 +443,7 @@ const App: React.FC = () => {
   const handleDownload = () => {
     if (allFactors.length > 0 && transcript.length > 0) {
       const markdown = generateDebateMarkdown(allFactors, transcript, finalSynthesis);
-      downloadMarkdown(markdown, `pixel-court-debate-${Date.now()}.md`);
+      downloadPdf(markdown, `pixel-court-debate-${Date.now()}.pdf`);
     }
   };
 
@@ -485,6 +520,7 @@ const App: React.FC = () => {
             currentFactor={currentFactor}
             roundInfo={roundInfo}
             isAudioPlaying={isAudioPlaying}
+            onSkip={handleSkip}
           />
 
           {/* Idle Overlay */}

@@ -3,6 +3,7 @@ import { Agent, run } from '@openai/agents';
 import { aisdk } from '@openai/agents-extensions';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { z } from 'zod';
+import { encode } from '@toon-format/toon';
 import { supportSystemPrompt } from '../prompts/support.js';
 
 // Reuse factor shape from factor.js by structural compatibility
@@ -47,20 +48,18 @@ export async function generateSupportTurn({
   debateHistory,
   turn,
 }) {
+  // Compress data using TOON format to reduce tokens
+  const factorToon = encode(factor);
+  const historyToon = debateHistory.length > 0 ? encode(debateHistory) : '(none)';
+
   const input = `
 You are generating a SUPPORTING argument for the following factor.
 
-Current factor (JSON):
-${JSON.stringify(factor, null, 2)}
+Current factor (TOON format):
+${factorToon}
 
-All factors (JSON):
-${JSON.stringify(factors, null, 2)}
-
-Debate history so far for this factor (JSON, may be empty):
-${JSON.stringify(debateHistory, null, 2)}
-
-Full report text:
-${reportText}
+Debate history so far for this factor (TOON format):
+${historyToon}
 `.trim();
 
   const result = await run(supportAgent, input);

@@ -6,17 +6,18 @@ interface SpeechBubbleProps {
   text: string;
   roundInfo?: { current: number; total: number } | null;
   isPlaying: boolean;
+  onSkip?: () => void;
 }
 
 /**
- * Purely presentational speech bubble component.
- * All audio control and text sync is handled by the parent App component.
+ * Speech bubble component with skip button.
  */
 const SpeechBubble: React.FC<SpeechBubbleProps> = ({
   speaker,
   text,
   roundInfo,
   isPlaying,
+  onSkip,
 }) => {
   // Styling based on speaker
   let bubbleClasses = "absolute z-20 max-w-[90%] md:max-w-[600px] bg-white border-4 border-black p-6 shadow-[8px_8px_0_rgba(0,0,0,0.5)] left-1/2 -translate-x-1/2 bottom-[8%]";
@@ -37,16 +38,30 @@ const SpeechBubble: React.FC<SpeechBubbleProps> = ({
 
   return (
     <div className={`${bubbleClasses} font-pixel text-lg md:text-xl leading-relaxed`}>
-      {/* Header */}
+      {/* Header with skip button */}
       <div className="flex items-center justify-between mb-2">
         <div className={`text-xs font-sans font-bold tracking-widest ${labelColor}`}>
           {label}
         </div>
-        {roundInfo && speaker !== Speaker.JUDGE && (
-          <div className="text-xs font-pixel text-slate-500 bg-slate-100 px-2 py-0.5 border border-slate-300">
-            ROUND {roundInfo.current}/{roundInfo.total}
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          {roundInfo && speaker !== Speaker.JUDGE && (
+            <div className="text-xs font-pixel text-slate-500 bg-slate-100 px-2 py-0.5 border border-slate-300">
+              ROUND {roundInfo.current}/{roundInfo.total}
+            </div>
+          )}
+          {/* Skip Button - always visible during playback */}
+          {onSkip && (
+            <button
+              onClick={onSkip}
+              className="text-xs font-pixel text-slate-600 hover:text-amber-600 
+                         bg-slate-200 hover:bg-amber-100 px-3 py-1 
+                         border-2 border-slate-400 hover:border-amber-500
+                         transition-all duration-200 active:translate-y-0.5"
+            >
+              SKIP ▶▶
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Text container */}

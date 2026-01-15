@@ -4,7 +4,7 @@ import SpeechBubble from './SpeechBubble';
 import { Speaker, Factor } from '../types';
 
 const MAX_VISIBLE_LINES = 3;
-const CHARS_PER_LINE = 80; // Increased to fill the card width properly
+const CHARS_PER_LINE = 80;
 
 interface CourtroomProps {
   currentSpeaker: Speaker;
@@ -13,6 +13,7 @@ interface CourtroomProps {
   currentFactor?: Factor | null;
   roundInfo?: { current: number; total: number } | null;
   isAudioPlaying: boolean;
+  onSkip?: () => void;
 }
 
 const Courtroom: React.FC<CourtroomProps> = ({
@@ -22,6 +23,7 @@ const Courtroom: React.FC<CourtroomProps> = ({
   currentFactor,
   roundInfo,
   isAudioPlaying,
+  onSkip,
 }) => {
   // Only show animated background when audio is actually playing
   const showAnimatedBackground = isAudioPlaying && currentSpeaker !== Speaker.NONE;
@@ -74,6 +76,7 @@ const Courtroom: React.FC<CourtroomProps> = ({
           text={visibleText}
           roundInfo={roundInfo}
           isPlaying={isAudioPlaying}
+          onSkip={onSkip}
         />
       )}
 
