@@ -9,6 +9,7 @@ import {
   createVerdictStep,
   generateDebateMarkdown,
   downloadPdf,
+  preprocessPdf,
   AnalysisSession,
 } from './services/backendService';
 import { generateSpeechForTurn, AudioGenerationResult, revokeAudioUrl } from './services/audioService';
@@ -319,8 +320,24 @@ const App: React.FC = () => {
 
   // Handle file upload
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    let file = e.target.files?.[0];
     if (!file) return;
+
+    // Check if PDF and preprocess via multimodal server
+    if (file.name.toLowerCase().endsWith('.pdf')) {
+      console.log('PDF detected, preprocessing via multimodal server...');
+      setAppState(AppState.ANALYZING);
+      setErrorMsg(null);
+      try {
+        file = await preprocessPdf(file);
+        console.log('PDF converted to markdown:', file.name);
+      } catch (err) {
+        console.error('PDF preprocessing failed:', err);
+        setAppState(AppState.ERROR);
+        setErrorMsg('Failed to process PDF. Please ensure the multimodal server is running.');
+        return;
+      }
+    }
 
     // Reset all state
     cleanupAudio();
@@ -471,7 +488,7 @@ const App: React.FC = () => {
         <div className="flex items-center gap-4">
           <label className="cursor-pointer bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded text-xs font-sans font-medium transition-colors">
             <span>UPLOAD CASE FILE (.MD)</span>
-            <input type="file" accept=".md,.txt" onChange={handleFileUpload} className="hidden" />
+            <input type="file" accept=".md,.txt,.pdf" onChange={handleFileUpload} className="hidden" />
           </label>
         </div>
       </header>
@@ -561,7 +578,7 @@ const App: React.FC = () => {
                                 border-b-4 border-amber-900 active:border-b-0 
                                 active:translate-y-1 transition-all">
                   Select Evidence File
-                  <input type="file" accept=".md,.txt" onChange={handleFileUpload} className="hidden" />
+                  <input type="file" accept=".md,.txt,.pdf" onChange={handleFileUpload} className="hidden" />
                 </label>
               </div>
             </div>

@@ -2,7 +2,34 @@ import { io, Socket } from 'socket.io-client';
 import { DialogueStep, Speaker, Factor, DebateTurn, Synthesis } from '../types';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
+const MULTIMODAL_URL = import.meta.env.VITE_MULTIMODAL_URL || 'http://localhost:8000';
 
+/**
+ * Preprocess PDF file by converting it to markdown via multimodal server.
+ * Returns a new File object with markdown content.
+ */
+export async function preprocessPdf(file: File): Promise<File> {
+  console.log('[preprocessPdf] Converting PDF to markdown...');
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await fetch(MULTIMODAL_URL, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error(`PDF preprocessing failed: ${response.status}`);
+  }
+
+  const markdownText = await response.text();
+  console.log('[preprocessPdf] Conversion complete, markdown length:', markdownText.length);
+
+  // Convert markdown text to File object
+  const blob = new Blob([markdownText], { type: 'text/markdown' });
+  return new File([blob], file.name.replace('.pdf', '.md'), { type: 'text/markdown' });
+}
 export interface FactorInfo {
   factorId: string;
   factorName: string;
