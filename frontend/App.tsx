@@ -516,7 +516,7 @@ const App: React.FC = () => {
 
         <div className="flex items-center gap-4">
           <label className="cursor-pointer bg-[#5c3a21] hover:bg-[#784b2b] px-3 py-1.5 rounded text-xs font-sans font-medium transition-colors text-[#fdf6e3] border-2 border-[#2d1b0e]">
-            <span>UPLOAD CASE FILE (.MD)</span>
+            <span>UPLOAD CASE FILE</span>
             <input type="file" accept=".md,.txt,.pdf" onChange={handleFileUpload} className="hidden" />
           </label>
         </div>
