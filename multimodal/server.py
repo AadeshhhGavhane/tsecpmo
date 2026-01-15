@@ -22,6 +22,16 @@ MODEL_NAME = "meta-llama/llama-4-scout-17b-16e-instruct"
 client = Groq(api_key=GROQ_API_KEY)
 app = FastAPI(title="PDF Context Extractor")
 
+# Add CORS middleware to allow frontend requests
+from fastapi.middleware.cors import CORSMiddleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins for development
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 def extract_full_text_and_images(pdf_bytes: bytes):
     """Extract text and images from PDF bytes."""
@@ -207,10 +217,6 @@ DOCUMENT TEXT:
     if images:
         stacked_img = stack_images_vertically(images)
         if stacked_img:
-            # Save combined image locally
-            stacked_img.save("combined_images.png")
-            print("Combined image saved to combined_images.png")
-            
             img_base64 = encode_pil_image_to_base64(stacked_img)
             content.append({
                 "type": "image_url",
